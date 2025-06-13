@@ -7,6 +7,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // Set default dates
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('issueDate').value = today;
+    
+    // Set minimum expiration date to today
+    document.getElementById('expirationDate').min = today;
 
     // Load drugs for prescription form
     loadDrugsForPrescription();
@@ -58,6 +61,10 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 5000);
     }
 
+    function formatCurrency(amount) {
+        return `ZMW ${parseFloat(amount).toFixed(2)}`;
+    }
+
     // Load drugs for prescription dropdown
     async function loadDrugsForPrescription() {
         try {
@@ -65,18 +72,25 @@ document.addEventListener('DOMContentLoaded', function() {
             const result = await response.json();
             
             const drugSelect = document.getElementById('drugId');
-            drugSelect.innerHTML = '<option value="">Select a drug</option>';
+            drugSelect.innerHTML = '<option value="">Select a drug from inventory</option>';
             
-            if (result.drugs) {
+            if (result.drugs && result.drugs.length > 0) {
                 result.drugs.forEach(drug => {
                     const option = document.createElement('option');
                     option.value = drug.id;
-                    option.textContent = `${drug.name} (ID: ${drug.id}, Stock: ${drug.quantity})`;
+                    option.textContent = `${drug.name} (Stock: ${drug.quantity}, Price: ${formatCurrency(drug.price)})`;
                     drugSelect.appendChild(option);
                 });
+            } else {
+                const option = document.createElement('option');
+                option.value = '';
+                option.textContent = 'No drugs available - Add drugs to inventory first';
+                option.disabled = true;
+                drugSelect.appendChild(option);
             }
         } catch (error) {
             console.error('Error loading drugs:', error);
+            showMessage(prescriptionResponse, 'Error loading available drugs', false);
         }
     }
 
@@ -97,7 +111,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <th>ID</th>
                                 <th>Drug Name</th>
                                 <th>Quantity</th>
-                                <th>Price ($)</th>
+                                <th>Price (ZMW)</th>
                                 <th>Expiration Date</th>
                                 <th>Status</th>
                             </tr>
@@ -129,7 +143,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             <td>${drug.id}</td>
                             <td>${drug.name}</td>
                             <td>${drug.quantity}</td>
-                            <td>$${parseFloat(drug.price).toFixed(2)}</td>
+                            <td>${formatCurrency(drug.price)}</td>
                             <td>${drug.exp_date}</td>
                             <td><span class="status ${statusClass}">${status}</span></td>
                         </tr>
@@ -139,7 +153,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 tableHTML += '</tbody></table>';
                 container.innerHTML = tableHTML;
             } else {
-                container.innerHTML = '<div class="no-data">No drugs in inventory</div>';
+                container.innerHTML = `
+                    <div class="no-data">
+                        <h3>No drugs in inventory</h3>
+                        <p>Start by adding your first drug to the inventory using the "Add New Drug" option.</p>
+                    </div>
+                `;
             }
         } catch (error) {
             container.innerHTML = '<div class="error">Error loading inventory</div>';
@@ -186,7 +205,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 tableHTML += '</tbody></table>';
                 container.innerHTML = tableHTML;
             } else {
-                container.innerHTML = '<div class="no-data">No prescriptions found</div>';
+                container.innerHTML = `
+                    <div class="no-data">
+                        <h3>No prescriptions found</h3>
+                        <p>Prescription history will appear here once you start issuing prescriptions.</p>
+                    </div>
+                `;
             }
         } catch (error) {
             container.innerHTML = '<div class="error">Error loading prescriptions</div>';
@@ -217,10 +241,12 @@ document.addEventListener('DOMContentLoaded', function() {
             
             if (result.success) {
                 inventoryForm.reset();
-                loadDrugsForPrescription(); // Refresh drug list
+                // Reset minimum date for expiration
+                document.getElementById('expirationDate').min = today;
+                loadDrugsForPrescription(); // Refresh drug list for prescriptions
             }
         } catch (error) {
-            showMessage(inventoryResponse, 'Error adding drug to inventory', false);
+            showMessage(inventoryResponse, 'Error adding drug to inventory. Please try again.', false);
             console.error('Error:', error);
         }
     }
@@ -249,14 +275,15 @@ document.addEventListener('DOMContentLoaded', function() {
             if (result.success) {
                 prescriptionForm.reset();
                 document.getElementById('issueDate').value = today;
+                loadDrugsForPrescription(); // Refresh drug list to show updated stock
             }
         } catch (error) {
-            showMessage(prescriptionResponse, 'Error issuing prescription', false);
+            showMessage(prescriptionResponse, 'Error issuing prescription. Please try again.', false);
             console.error('Error:', error);
         }
     }
 
-    // Form event listeners
+    // Form validation and submission
     inventoryForm.addEventListener('submit', async function(event) {
         event.preventDefault();
         const name = document.getElementById('drugName').value.trim();
@@ -264,11 +291,37 @@ document.addEventListener('DOMContentLoaded', function() {
         const price = parseFloat(document.getElementById('price').value);
         const expDate = document.getElementById('expirationDate').value;
         
-        if (name && quantity > 0 && price >= 0 && expDate) {
-            await addDrug(name, quantity, price, expDate);
-        } else {
-            showMessage(inventoryResponse, 'Please fill in all fields correctly', false);
+        // Validation
+        if (!name) {
+            showMessage(inventoryResponse, 'Please enter a drug name', false);
+            return;
         }
+        
+        if (!quantity || quantity <= 0) {
+            showMessage(inventoryResponse, 'Please enter a valid quantity (greater than 0)', false);
+            return;
+        }
+        
+        if (!price || price < 0) {
+            showMessage(inventoryResponse, 'Please enter a valid price (0 or greater)', false);
+            return;
+        }
+        
+        if (!expDate) {
+            showMessage(inventoryResponse, 'Please select an expiration date', false);
+            return;
+        }
+        
+        const selectedDate = new Date(expDate);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        if (selectedDate < today) {
+            showMessage(inventoryResponse, 'Expiration date cannot be in the past', false);
+            return;
+        }
+        
+        await addDrug(name, quantity, price, expDate);
     });
 
     prescriptionForm.addEventListener('submit', async function(event) {
@@ -278,10 +331,27 @@ document.addEventListener('DOMContentLoaded', function() {
         const dosage = document.getElementById('dosage').value.trim();
         const issueDate = document.getElementById('issueDate').value;
         
-        if (patientId && drugId && dosage && issueDate) {
-            await issuePrescription(patientId, drugId, dosage, issueDate);
-        } else {
-            showMessage(prescriptionResponse, 'Please fill in all fields', false);
+        // Validation
+        if (!patientId) {
+            showMessage(prescriptionResponse, 'Please enter a patient ID', false);
+            return;
         }
+        
+        if (!drugId) {
+            showMessage(prescriptionResponse, 'Please select a drug from the list', false);
+            return;
+        }
+        
+        if (!dosage) {
+            showMessage(prescriptionResponse, 'Please enter dosage instructions', false);
+            return;
+        }
+        
+        if (!issueDate) {
+            showMessage(prescriptionResponse, 'Please select an issue date', false);
+            return;
+        }
+        
+        await issuePrescription(patientId, drugId, dosage, issueDate);
     });
 });

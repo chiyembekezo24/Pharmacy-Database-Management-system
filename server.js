@@ -38,23 +38,8 @@ function initDb() {
         )
     `);
     
-    // Insert sample data if tables are empty
-    db.get('SELECT COUNT(*) as count FROM inventory', (err, row) => {
-        if (!err && row.count === 0) {
-            db.run(`
-                INSERT INTO inventory (name, quantity, price, exp_date) 
-                VALUES ('Aspirin', 100, 5.99, '2024-12-31')
-            `);
-            db.run(`
-                INSERT INTO inventory (name, quantity, price, exp_date) 
-                VALUES ('Paracetamol', 50, 3.99, '2024-10-15')
-            `);
-            db.run(`
-                INSERT INTO inventory (name, quantity, price, exp_date) 
-                VALUES ('Ibuprofen', 200, 7.50, '2025-01-01')
-            `);
-        }
-    });
+    // Only insert sample data if specifically requested - removed automatic sample data insertion
+    console.log('Database initialized. Ready for custom drug entries.');
     
     db.close();
 }
@@ -93,9 +78,37 @@ app.post('/addDrug', (req, res) => {
     const { drugName, quantity, price, expirationDate } = req.body;
     const db = new sqlite3.Database('pharmacy.db');
     
+    // Validate input
+    if (!drugName || !quantity || !price || !expirationDate) {
+        res.status(400).json({ 
+            message: 'All fields are required', 
+            success: false 
+        });
+        db.close();
+        return;
+    }
+    
+    if (parseInt(quantity) <= 0) {
+        res.status(400).json({ 
+            message: 'Quantity must be greater than 0', 
+            success: false 
+        });
+        db.close();
+        return;
+    }
+    
+    if (parseFloat(price) < 0) {
+        res.status(400).json({ 
+            message: 'Price cannot be negative', 
+            success: false 
+        });
+        db.close();
+        return;
+    }
+    
     db.run(
         'INSERT INTO inventory (name, quantity, price, exp_date) VALUES (?, ?, ?, ?)',
-        [drugName, parseInt(quantity), parseFloat(price), expirationDate],
+        [drugName.trim(), parseInt(quantity), parseFloat(price), expirationDate],
         function(err) {
             if (err) {
                 res.status(500).json({ 
@@ -104,7 +117,7 @@ app.post('/addDrug', (req, res) => {
                 });
             } else {
                 res.json({ 
-                    message: 'Drug added to inventory successfully', 
+                    message: `${drugName} added to inventory successfully`, 
                     success: true 
                 });
             }
@@ -118,7 +131,17 @@ app.post('/issuePrescription', (req, res) => {
     const { patientId, drugId, dosage, issueDate } = req.body;
     const db = new sqlite3.Database('pharmacy.db');
     
-    // Check if drug exists
+    // Validate input
+    if (!patientId || !drugId || !dosage || !issueDate) {
+        res.status(400).json({ 
+            message: 'All fields are required', 
+            success: false 
+        });
+        db.close();
+        return;
+    }
+    
+    // Check if drug exists and has sufficient quantity
     db.get('SELECT name, quantity FROM inventory WHERE id = ?', [parseInt(drugId)], (err, drug) => {
         if (err) {
             res.status(500).json({ 
@@ -138,9 +161,18 @@ app.post('/issuePrescription', (req, res) => {
             return;
         }
         
+        if (drug.quantity <= 0) {
+            res.status(400).json({ 
+                message: `${drug.name} is out of stock`, 
+                success: false 
+            });
+            db.close();
+            return;
+        }
+        
         db.run(
             'INSERT INTO prescriptions (patient_id, drug_id, dosage, issue_dt) VALUES (?, ?, ?, ?)',
-            [patientId, parseInt(drugId), dosage, issueDate],
+            [patientId.trim(), parseInt(drugId), dosage.trim(), issueDate],
             function(err) {
                 if (err) {
                     res.status(500).json({ 
@@ -187,4 +219,5 @@ app.get('/getPrescriptions', (req, res) => {
 
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
+    console.log('Pharmacy Management System ready for custom drug entries');
 });

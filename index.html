@@ -11,6 +11,7 @@
         <header>
             <h1>Pharmacy Database Management System</h1>
             <p class="subtitle">Streamline your pharmacy operations with our comprehensive management solution</p>
+            <p class="currency-info">💰 All prices in Zambian Kwacha (ZMW)</p>
         </header>
 
         <div id="menu" class="menu-section">
@@ -18,11 +19,11 @@
             <div class="button-grid">
                 <button class="menu-btn" onclick="showSection('inventory')">
                     <span class="btn-icon">💊</span>
-                    Inventory Management
+                    Add New Drug
                 </button>
                 <button class="menu-btn" onclick="showSection('prescription')">
                     <span class="btn-icon">📋</span>
-                    Prescription Tracking
+                    Issue Prescription
                 </button>
                 <button class="menu-btn" onclick="showSection('view-inventory')">
                     <span class="btn-icon">📊</span>
@@ -37,50 +38,50 @@
 
         <div id="inventorySection" class="section" style="display:none;">
             <div class="section-header">
-                <h2>Inventory Management</h2>
+                <h2>Add New Drug to Inventory</h2>
                 <button class="back-btn" onclick="showMenu()">← Back to Menu</button>
             </div>
             <form id="inventoryForm" class="form-card">
                 <div class="form-group">
                     <label for="drugName">Drug Name:</label>
-                    <input type="text" id="drugName" required placeholder="Enter drug name">
+                    <input type="text" id="drugName" required placeholder="Enter drug name (e.g., Paracetamol, Aspirin)">
                 </div>
                 <div class="form-group">
-                    <label for="quantity">Quantity:</label>
-                    <input type="number" id="quantity" required min="1" placeholder="Enter quantity">
+                    <label for="quantity">Quantity in Stock:</label>
+                    <input type="number" id="quantity" required min="1" placeholder="Enter quantity (number of units)">
                 </div>
                 <div class="form-group">
-                    <label for="price">Price ($):</label>
-                    <input type="number" id="price" step="0.01" required min="0" placeholder="Enter price">
+                    <label for="price">Price per Unit (ZMW):</label>
+                    <input type="number" id="price" step="0.01" required min="0" placeholder="Enter price in Zambian Kwacha">
                 </div>
                 <div class="form-group">
                     <label for="expirationDate">Expiration Date:</label>
                     <input type="date" id="expirationDate" required>
                 </div>
-                <button type="submit" class="submit-btn">Add to Inventory</button>
+                <button type="submit" class="submit-btn">Add Drug to Inventory</button>
             </form>
             <div id="inventoryResponse" class="response-message"></div>
         </div>
 
         <div id="prescriptionSection" class="section" style="display:none;">
             <div class="section-header">
-                <h2>Prescription Tracking</h2>
+                <h2>Issue Prescription</h2>
                 <button class="back-btn" onclick="showMenu()">← Back to Menu</button>
             </div>
             <form id="prescriptionForm" class="form-card">
                 <div class="form-group">
                     <label for="patientId">Patient ID:</label>
-                    <input type="text" id="patientId" required placeholder="Enter patient ID">
+                    <input type="text" id="patientId" required placeholder="Enter patient ID or name">
                 </div>
                 <div class="form-group">
-                    <label for="drugId">Drug ID:</label>
+                    <label for="drugId">Select Drug:</label>
                     <select id="drugId" required>
-                        <option value="">Select a drug</option>
+                        <option value="">Select a drug from inventory</option>
                     </select>
                 </div>
                 <div class="form-group">
-                    <label for="dosage">Dosage:</label>
-                    <input type="text" id="dosage" required placeholder="e.g., 2 tablets twice daily">
+                    <label for="dosage">Dosage Instructions:</label>
+                    <input type="text" id="dosage" required placeholder="e.g., 2 tablets twice daily, 1 capsule every 8 hours">
                 </div>
                 <div class="form-group">
                     <label for="issueDate">Issue Date:</label>

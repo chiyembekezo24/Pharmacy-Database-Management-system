@@ -40,6 +40,18 @@ h1 {
     color: #7f8c8d;
     font-size: 1.1rem;
     font-weight: 300;
+    margin-bottom: 10px;
+}
+
+.currency-info {
+    color: #27ae60;
+    font-size: 1rem;
+    font-weight: 600;
+    background: rgba(39, 174, 96, 0.1);
+    padding: 8px 16px;
+    border-radius: 20px;
+    display: inline-block;
+    margin-top: 10px;
 }
 
 .menu-section {
@@ -306,6 +318,16 @@ select:focus {
     border-radius: 8px;
 }
 
+.no-data h3 {
+    color: #2c3e50;
+    margin-bottom: 10px;
+}
+
+.no-data p {
+    color: #7f8c8d;
+    font-size: 1rem;
+}
+
 .error {
     text-align: center;
     padding: 40px;
@@ -361,5 +383,10 @@ select:focus {
     
     .btn-icon {
         font-size: 1.5rem;
+    }
+    
+    .currency-info {
+        font-size: 0.9rem;
+        padding: 6px 12px;
     }
 }
