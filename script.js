@@ -65,6 +65,65 @@ document.addEventListener('DOMContentLoaded', function() {
         return `ZMW ${parseFloat(amount).toFixed(2)}`;
     }
 
+    // Confirm deletion function
+    function confirmDelete(type, name, id) {
+        const message = `Are you sure you want to delete ${type} "${name}"?\n\nThis action cannot be undone.`;
+        return confirm(message);
+    }
+
+    // Delete drug from inventory
+    window.deleteDrug = async function(drugId, drugName) {
+        if (!confirmDelete('drug', drugName, drugId)) {
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/deleteDrug/${drugId}`, {
+                method: 'DELETE'
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                alert(result.message);
+                loadInventory(); // Refresh inventory table
+                loadDrugsForPrescription(); // Refresh prescription dropdown
+            } else {
+                alert(`Error: ${result.message}`);
+            }
+        } catch (error) {
+            console.error('Error deleting drug:', error);
+            alert('Error deleting drug. Please try again.');
+        }
+    };
+
+    // Delete prescription
+    window.deletePrescription = async function(prescriptionId, patientId) {
+        if (!confirmDelete('prescription', `#${prescriptionId} for ${patientId}`, prescriptionId)) {
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/deletePrescription/${prescriptionId}`, {
+                method: 'DELETE'
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                alert(result.message);
+                loadPrescriptions(); // Refresh prescriptions table
+                loadInventory(); // Refresh inventory to show restored stock
+                loadDrugsForPrescription(); // Refresh prescription dropdown
+            } else {
+                alert(`Error: ${result.message}`);
+            }
+        } catch (error) {
+            console.error('Error deleting prescription:', error);
+            alert('Error deleting prescription. Please try again.');
+        }
+    };
+
     // Print prescription function
     function printPrescription(prescriptionData) {
         const printWindow = window.open('', '_blank');
@@ -317,6 +376,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <th>Price (ZMW)</th>
                                 <th>Expiration Date</th>
                                 <th>Status</th>
+                                <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -355,6 +415,13 @@ document.addEventListener('DOMContentLoaded', function() {
                             <td>${formatCurrency(drug.price)}</td>
                             <td>${drug.exp_date}</td>
                             <td><span class="status ${statusClass}">${status}</span></td>
+                            <td>
+                                <button class="delete-btn" onclick="deleteDrug(${drug.id}, '${drug.name.replace(/'/g, "\\'")}')" 
+                                        style="background: #e74c3c; color: white; border: none; padding: 5px 10px; 
+                                               border-radius: 4px; cursor: pointer; font-size: 0.9rem;">
+                                    🗑️ Delete
+                                </button>
+                            </td>
                         </tr>
                     `;
                 });
@@ -413,8 +480,13 @@ document.addEventListener('DOMContentLoaded', function() {
                             <td>
                                 <button class="print-btn" onclick="printPrescriptionById(${prescription.id})" 
                                         style="background: #3498db; color: white; border: none; padding: 5px 10px; 
-                                               border-radius: 4px; cursor: pointer; font-size: 0.9rem;">
+                                               border-radius: 4px; cursor: pointer; font-size: 0.9rem; margin-right: 5px;">
                                     🖨️ Print
+                                </button>
+                                <button class="delete-btn" onclick="deletePrescription(${prescription.id}, '${prescription.patient_id.replace(/'/g, "\\'")}')" 
+                                        style="background: #e74c3c; color: white; border: none; padding: 5px 10px; 
+                                               border-radius: 4px; cursor: pointer; font-size: 0.9rem;">
+                                    🗑️ Delete
                                 </button>
                             </td>
                         </tr>

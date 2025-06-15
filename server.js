@@ -151,6 +151,70 @@ app.post('/addDrug', (req, res) => {
     );
 });
 
+// API to delete a drug from inventory
+app.delete('/deleteDrug/:id', (req, res) => {
+    const drugId = req.params.id;
+    const db = new sqlite3.Database('pharmacy.db');
+    
+    // First check if drug has any prescriptions
+    db.get('SELECT COUNT(*) as count FROM prescriptions WHERE drug_id = ?', [drugId], (err, result) => {
+        if (err) {
+            res.status(500).json({ 
+                message: `Error checking prescriptions: ${err.message}`, 
+                success: false 
+            });
+            db.close();
+            return;
+        }
+        
+        if (result.count > 0) {
+            res.status(400).json({ 
+                message: 'Cannot delete drug with existing prescriptions. Delete prescriptions first.', 
+                success: false 
+            });
+            db.close();
+            return;
+        }
+        
+        // Get drug name for confirmation message
+        db.get('SELECT name FROM inventory WHERE id = ?', [drugId], (err, drug) => {
+            if (err) {
+                res.status(500).json({ 
+                    message: `Error fetching drug: ${err.message}`, 
+                    success: false 
+                });
+                db.close();
+                return;
+            }
+            
+            if (!drug) {
+                res.status(404).json({ 
+                    message: 'Drug not found', 
+                    success: false 
+                });
+                db.close();
+                return;
+            }
+            
+            // Delete the drug
+            db.run('DELETE FROM inventory WHERE id = ?', [drugId], function(err) {
+                if (err) {
+                    res.status(500).json({ 
+                        message: `Error deleting drug: ${err.message}`, 
+                        success: false 
+                    });
+                } else {
+                    res.json({ 
+                        message: `${drug.name} deleted from inventory successfully`, 
+                        success: true 
+                    });
+                }
+                db.close();
+            });
+        });
+    });
+});
+
 // API to issue a prescription
 app.post('/issuePrescription', (req, res) => {
     const { patientId, drugId, dosage, issueDate } = req.body;
@@ -261,6 +325,81 @@ app.get('/getPrescriptions', (req, res) => {
     });
 });
 
+// API to delete a prescription
+app.delete('/deletePrescription/:id', (req, res) => {
+    const prescriptionId = req.params.id;
+    const db = new sqlite3.Database('pharmacy.db');
+    
+    // Get prescription details before deletion
+    db.get(`
+        SELECT 
+            p.prescription_id,
+            p.patient_id,
+            p.drug_id,
+            i.name as drug_name
+        FROM prescriptions p
+        JOIN inventory i ON p.drug_id = i.id
+        WHERE p.prescription_id = ?
+    `, [prescriptionId], (err, prescription) => {
+        if (err) {
+            res.status(500).json({ 
+                message: `Error fetching prescription: ${err.message}`, 
+                success: false 
+            });
+            db.close();
+            return;
+        }
+        
+        if (!prescription) {
+            res.status(404).json({ 
+                message: 'Prescription not found', 
+                success: false 
+            });
+            db.close();
+            return;
+        }
+        
+        // Delete the prescription and restore inventory
+        db.serialize(() => {
+            db.run('BEGIN TRANSACTION');
+            
+            // Delete prescription
+            db.run('DELETE FROM prescriptions WHERE prescription_id = ?', [prescriptionId], function(err) {
+                if (err) {
+                    db.run('ROLLBACK');
+                    res.status(500).json({ 
+                        message: `Error deleting prescription: ${err.message}`, 
+                        success: false 
+                    });
+                    db.close();
+                    return;
+                }
+                
+                // Restore inventory quantity
+                db.run('UPDATE inventory SET quantity = quantity + 1, updated_at = CURRENT_TIMESTAMP WHERE id = ?', 
+                    [prescription.drug_id], function(err) {
+                    if (err) {
+                        db.run('ROLLBACK');
+                        res.status(500).json({ 
+                            message: `Error restoring inventory: ${err.message}`, 
+                            success: false 
+                        });
+                        db.close();
+                        return;
+                    }
+                    
+                    db.run('COMMIT');
+                    res.json({ 
+                        message: `Prescription #${prescriptionId} deleted and inventory restored`, 
+                        success: true 
+                    });
+                    db.close();
+                });
+            });
+        });
+    });
+});
+
 // API to get prescription details for printing
 app.get('/getPrescription/:id', (req, res) => {
     const prescriptionId = req.params.id;
@@ -337,5 +476,7 @@ app.listen(PORT, () => {
     console.log('- Custom drug inventory management');
     console.log('- Zambian Kwacha (ZMW) currency support');
     console.log('- Prescription printing functionality');
-    console.log('- Automatic inventory reduction on prescription');
+    console.log('- Delete functionality for drugs and prescriptions');
+    console.log('- Automatic inventory reduction/restoration');
+    console.log('- GitHub and local laptop compatible');
 });
